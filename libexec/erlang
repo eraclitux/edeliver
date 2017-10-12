@@ -333,7 +333,7 @@ copy_release_to_release_store() {
   elif [ "$RELEASE_STORE_TYPE" = "local" ]; then
     status "Copying $(basename $_release_file) to release store"
     __create_directory_in_release_store "/releases"
-    __exec "scp -o ConnectTimeout=\"$SSH_TIMEOUT\"  -p $BUILD_USER@$BUILD_HOST:${_release_file} ${RELEASE_STORE}/releases/${APP}_${RELEASE_VERSION}${_release_revision}.${_release_type}.tar.gz"
+    __exec "scp -P $SSH_PORT -o ConnectTimeout=\"$SSH_TIMEOUT\"  -p $BUILD_USER@$BUILD_HOST:${_release_file} ${RELEASE_STORE}/releases/${APP}_${RELEASE_VERSION}${_release_revision}.${_release_type}.tar.gz"
   elif [ "$RELEASE_STORE_TYPE" = "remote" ]; then
     local _release_store_path=${RELEASE_STORE#*:}
     local _release_store_host=${RELEASE_STORE%:*}
@@ -350,7 +350,7 @@ copy_release_to_release_store() {
       fi
       exit
     "
-    ssh -A -o ConnectTimeout="$SSH_TIMEOUT" "$_build_hosts" "$_remote_job $SILENCE" || \
+    ssh -p $SSH_PORT -A -o ConnectTimeout="$SSH_TIMEOUT" "$_build_hosts" "$_remote_job $SILENCE" || \
       error "Copying release file failed\n  source: $_release_file on $_build_hosts\n  destination: $_dest_file_name on $_release_store_host"
   else
     error_message "Cannot copy releases to store for store type ${RELEASE_STORE_TYPE}"; exit 2
@@ -398,7 +398,7 @@ get_relup_content_from_upgrade() {
       tar -Oxzf \"$_release_file\" releases/${_release_version}/relup
       exit
     "
-    ssh -o ConnectTimeout="$SSH_TIMEOUT" "$_release_store_host" "$_remote_job $SILENCE"
+    ssh -p $SSH_PORT -o ConnectTimeout="$SSH_TIMEOUT" "$_release_store_host" "$_remote_job $SILENCE"
   elif [ "$RELEASE_STORE_TYPE" = "s3" ]; then
     local _local_tmp_dir=$(mktemp -d "${LOCAL_RELEASE_STORE}/.tmp/${_release_file}.XXXXXX")
     download_file_from_s3_release_store "$_release_file" "${_local_tmp_dir}/${_release_file}"
@@ -456,7 +456,7 @@ upload_file_to_remote_release_store() {
     [[ $REPLY = [yY] ]] || exit 1
   }
   status "Uploading file $_source_file to $_destination_file"
-  __exec "scp -o ConnectTimeout=\"$SSH_TIMEOUT\" -p ${_source_file} ${_release_store_host}:${_release_store_path%%/}/${_destination_file} $SILENCE"
+  __exec "scp -P $SSH_PORT -o ConnectTimeout=\"$SSH_TIMEOUT\" -p ${_source_file} ${_release_store_host}:${_release_store_path%%/}/${_destination_file} $SILENCE"
 }
 
 # copies the generated appup files from the remote build host
@@ -470,7 +470,7 @@ copy_appups_to_release_store() {
   status "Copying generated appup files to release store /appup/${_old_version}-${RELEASE_VERSION}"
   # create release store directory if it is a local directory
   __create_directory_in_release_store "/appup/${_old_version}-${RELEASE_VERSION}"
-  __exec "scp -o ConnectTimeout=\"$SSH_TIMEOUT\"  -p $BUILD_USER@$BUILD_HOST:${_appup_files} ${RELEASE_STORE}/appup/${_old_version}-${RELEASE_VERSION}"
+  __exec "scp -P $SSH_PORT -o ConnectTimeout=\"$SSH_TIMEOUT\"  -p $BUILD_USER@$BUILD_HOST:${_appup_files} ${RELEASE_STORE}/appup/${_old_version}-${RELEASE_VERSION}"
 }
 
 file_exists_in_store() {
@@ -516,7 +516,7 @@ download_file_from_remote_release_store() {
     exit 2
   }
   status "Downloading $_source_file to $_destination_file"
-  __exec "scp -o ConnectTimeout=\"$SSH_TIMEOUT\" -p ${_release_store_host}:${_release_store_path%%/}/${_source_file} ${_destination_file} $SILENCE"
+  __exec "scp -P $SSH_PORT -o ConnectTimeout=\"$SSH_TIMEOUT\" -p ${_release_store_host}:${_release_store_path%%/}/${_source_file} ${_destination_file} $SILENCE"
 }
 
 # reselects the release or update to deploy to productions hosts
@@ -675,7 +675,7 @@ __get_releases_in_store() {
       ls -1 ${APP}_*.${_release_type}.tar.gz
       exit
     "
-    ssh -o ConnectTimeout="$SSH_TIMEOUT" "$_release_store_host" "$_remote_job $SILENCE"
+    ssh -p $SSH_PORT -o ConnectTimeout="$SSH_TIMEOUT" "$_release_store_host" "$_remote_job $SILENCE"
   else
     error_message "Cannot detect releases in store for store type ${RELEASE_STORE_TYPE}"; exit 2
   fi
@@ -751,7 +751,7 @@ upload_release_archive() {
       done
       exit
     "
-    ssh -A -o ConnectTimeout="$SSH_TIMEOUT" "$_release_store_host" "$_remote_job $SILENCE" || \
+    ssh -p $SSH_PORT -A -o ConnectTimeout="$SSH_TIMEOUT" "$_release_store_host" "$_remote_job $SILENCE" || \
       error "Uploading release file failed\n  source: ${_release_store_path%%/}/${_release_file} on $_release_store_host\n  destination: $_dest_file_name on deploy hosts"
   else
     error_message "Cannot upload release for store type ${RELEASE_STORE_TYPE}"; exit 2
@@ -1031,7 +1031,7 @@ copy_appups_from_release_store_to_build_host() {
       local _appup_base_name=$(basename $appup_file)
       local _appup_app_name=${_appup_base_name%.*}
       __exec "echo \"Copying $RELEASE_STORE/appup/${_old_version}-${RELEASE_VERSION}/${_appup_base_name}\" to $BUILD_USER@$BUILD_HOST:${RELEASE_DIR}/lib/${_appup_app_name}*/ebin/${_appup_base_name}"
-      __exec "scp -o ConnectTimeout=\"$SSH_TIMEOUT\" -p $RELEASE_STORE/appup/${_old_version}-${RELEASE_VERSION}/${_appup_base_name} $BUILD_USER@$BUILD_HOST:${RELEASE_DIR}/lib/${_appup_app_name}*/ebin/${_appup_base_name}"
+      __exec "scp -P $SSH_PORT -o ConnectTimeout=\"$SSH_TIMEOUT\" -p $RELEASE_STORE/appup/${_old_version}-${RELEASE_VERSION}/${_appup_base_name} $BUILD_USER@$BUILD_HOST:${RELEASE_DIR}/lib/${_appup_app_name}*/ebin/${_appup_base_name}"
     done
   else
     status "Using default appup scripts. No custom scripts in /appup/${_old_version}-${RELEASE_VERSION}/"
@@ -1258,9 +1258,9 @@ __parallel_scp() {
       fi
     fi
     __exec "echo \"copying $_source_file to $_host:$_destination_dir\""
-    scp -o ConnectTimeout="$SSH_TIMEOUT" $_options "$_source_file" "$_host:$_destination_dir" &
+    scp -P $SSH_PORT -o ConnectTimeout="$SSH_TIMEOUT" $_options "$_source_file" "$_host:$_destination_dir" &
     background_jobs_pids+=("$!")
-    local _background_job="scp -o ConnectTimeout=$SSH_TIMEOUT $_options $_source_file $_host:$_destination_dir $SILENCE"
+    local _background_job="scp -P $SSH_PORT -o ConnectTimeout=$SSH_TIMEOUT $_options $_source_file $_host:$_destination_dir $SILENCE"
     background_jobs+=("$_background_job")
   done
 
@@ -1306,7 +1306,7 @@ __remote_md5() {
         echo \"\"
     fi
   "
-  ssh -o ConnectTimeout="$SSH_TIMEOUT" "$_remote_host" "$_remote_job"
+  ssh -p $SSH_PORT -o ConnectTimeout="$SSH_TIMEOUT" "$_remote_host" "$_remote_job"
 }
 
 begin() {

@@ -227,7 +227,7 @@ __execute_node_command() {
   _remote_job="$(__get_node_command "$_node_command" "$_path" "$_config_arg")"
 
   [ "${_node_index}" = "single_node" ] && local _terminal_option="-t -q" || local _terminal_option=
-  ssh $_terminal_option -o ConnectTimeout="$SSH_TIMEOUT" "${_user}@${_host}" "$_remote_job"
+  ssh -p $SSH_PORT $_terminal_option -o ConnectTimeout="$SSH_TIMEOUT" "${_user}@${_host}" "$_remote_job"
   _status_code="$?"
   [ "${_node_index}" != "single_node" ] && echo -e "\n${_status_code}"
   [[ "$_status_code" = "0" ]] && return 0 || return 1
